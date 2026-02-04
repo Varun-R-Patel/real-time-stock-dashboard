@@ -90,8 +90,9 @@ if df.empty:
 # --------------------------------------------------
 df["MA"] = df["Close"].rolling(ma_window).mean()
 
-latest_price = df["Close"].iloc[-1]
-price_change = latest_price - df["Close"].iloc[0]
+latest_price = float(df["Close"].iloc[-1])
+start_price = float(df["Close"].iloc[0])
+price_change = latest_price - start_price
 
 # --------------------------------------------------
 # Metrics
