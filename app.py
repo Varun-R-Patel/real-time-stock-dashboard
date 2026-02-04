@@ -3,6 +3,7 @@ import pandas as pd
 import yfinance as yf
 from streamlit_autorefresh import st_autorefresh
 from datetime import datetime
+import plotly.graph_objects as go
 import pytz
 
 # --------------------------------------------------
@@ -117,10 +118,42 @@ col2.metric(
 # --------------------------------------------------
 st.subheader(f"{selected_symbol} Price Trend")
 
-st.line_chart(
-    df[["Close", "MA"]],
-    height=400
+fig = go.Figure()
+
+# Price line (smooth curve)
+fig.add_trace(
+    go.Scatter(
+        x=df.index,
+        y=df["Close"],
+        mode="lines",
+        name="Price",
+        line=dict(width=2),
+        hovertemplate="Time: %{x}<br>Price: $%{y:.2f}<extra></extra>"
+    )
 )
+
+# Moving Average line
+fig.add_trace(
+    go.Scatter(
+        x=df.index,
+        y=df["MA"],
+        mode="lines",
+        name=f"MA ({ma_window})",
+        line=dict(width=2, dash="dot"),
+        hovertemplate="Time: %{x}<br>MA: $%{y:.2f}<extra></extra>"
+    )
+)
+
+fig.update_layout(
+    height=450,
+    hovermode="x unified",
+    xaxis_title="Time",
+    yaxis_title="Price (USD)",
+    legend=dict(orientation="h", yanchor="bottom", y=1.02),
+    margin=dict(l=40, r=40, t=40, b=40)
+)
+
+st.plotly_chart(fig, use_container_width=True)
 
 # --------------------------------------------------
 # Footer
