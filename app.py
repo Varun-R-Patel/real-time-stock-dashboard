@@ -26,13 +26,11 @@ def market_status():
 
     if now.weekday() >= 5:
         return "Market Closed (Weekend)"
-
     if now.hour < 9 or (now.hour == 9 and now.minute < 30):
         return "Pre-Market"
-    elif 9 <= now.hour < 16:
+    if 9 <= now.hour < 16:
         return "Market Open"
-    else:
-        return "After Hours"
+    return "After Hours"
 
 # --------------------------------------------------
 # Cached live data fetch (cloud-safe)
@@ -43,7 +41,7 @@ def fetch_live_data(symbol):
         tickers=symbol,
         period="1d",
         interval="1m",
-        prepost=True,      # include after-hours + pre-market
+        prepost=True,
         progress=False
     )
     return df
@@ -88,15 +86,16 @@ if df.empty:
 # --------------------------------------------------
 # Analysis
 # --------------------------------------------------
+df = df.copy()
 df["MA"] = df["Close"].rolling(ma_window).mean()
-
-latest_price = float(filtered_df["price"].iloc[-1])
-start_price = float(filtered_df["price"].iloc[0])
-price_change = latest_price - start_price
 
 # --------------------------------------------------
 # Metrics
 # --------------------------------------------------
+latest_price = float(df["Close"].iloc[-1])
+start_price = float(df["Close"].iloc[0])
+price_change = latest_price - start_price
+
 col1, col2 = st.columns(2)
 
 col1.metric(
