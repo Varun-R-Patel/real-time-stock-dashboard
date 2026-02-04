@@ -93,6 +93,14 @@ if isinstance(df.columns, pd.MultiIndex):
 
 df = df.copy()
 
+# --- FIX TIMEZONE: UTC → US/Eastern ---
+df.index = pd.to_datetime(df.index)
+
+if df.index.tz is None:
+    df.index = df.index.tz_localize("UTC")
+
+df.index = df.index.tz_convert("US/Eastern")
+
 # --------------------------------------------------
 # Analysis
 # --------------------------------------------------
@@ -208,6 +216,7 @@ fig.update_layout(
     yaxis=dict(showgrid=True, gridcolor="rgba(255,255,255,0.05)"),
     yaxis2=dict(showgrid=False),
 )
+fig.update_xaxes(title_text="Time (US/Eastern)")
 
 fig.update_yaxes(
     title_text="Price (USD)",
