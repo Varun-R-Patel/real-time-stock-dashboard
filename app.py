@@ -105,23 +105,26 @@ price_change = latest_price - start_price
 day_high = df["High"].max()
 day_low = df["Low"].min()
 
+price_padding = (day_high - day_low) * 0.15
+
+# Volume color logic
+volume_colors = [
+    "rgba(0,200,0,0.5)" if df["Close"].iloc[i] >= df["Close"].iloc[i - 1]
+    else "rgba(200,0,0,0.5)"
+    for i in range(1, len(df))
+]
+volume_colors.insert(0, "rgba(150,150,150,0.4)")
+
 # --------------------------------------------------
 # Metrics
 # --------------------------------------------------
 col1, col2 = st.columns(2)
 
-col1.metric(
-    "Latest Price",
-    f"${latest_price:.2f}"
-)
-
-col2.metric(
-    "Change Today",
-    f"${price_change:.2f}"
-)
+col1.metric("Latest Price", f"${latest_price:.2f}")
+col2.metric("Change Today", f"${price_change:.2f}")
 
 # --------------------------------------------------
-# Interactive Chart: Price + MA + Volume + High/Low
+# Interactive Chart
 # --------------------------------------------------
 fig = make_subplots(
     rows=2,
@@ -139,10 +142,10 @@ fig.add_trace(
         mode="lines",
         name="Price",
         line=dict(width=2),
-        hovertemplate="Time: %{x}<br>Price: $%{y:.2f}<extra></extra>"
+        hovertemplate="Time: %{x}<br>Price: $%{y:.2f}<extra></extra>",
     ),
     row=1,
-    col=1
+    col=1,
 )
 
 # Moving Average
@@ -153,10 +156,10 @@ fig.add_trace(
         mode="lines",
         name=f"MA ({ma_window})",
         line=dict(width=2, dash="dot"),
-        hovertemplate="Time: %{x}<br>MA: $%{y:.2f}<extra></extra>"
+        hovertemplate="Time: %{x}<br>MA: $%{y:.2f}<extra></extra>",
     ),
     row=1,
-    col=1
+    col=1,
 )
 
 # Volume bars
@@ -165,44 +168,53 @@ fig.add_trace(
         x=df.index,
         y=df["Volume"],
         name="Volume",
-        marker=dict(opacity=0.4),
-        hovertemplate="Time: %{x}<br>Volume: %{y:,}<extra></extra>"
+        marker_color=volume_colors,
+        hovertemplate="Time: %{x}<br>Volume: %{y:,}<extra></extra>",
     ),
     row=2,
-    col=1
+    col=1,
 )
 
 # Day High / Low bands
 fig.add_hline(
     y=day_high,
-    line=dict(width=1, dash="dash"),
+    line=dict(width=1, color="rgba(255,255,255,0.4)"),
     annotation_text="Day High",
-    annotation_position="top left"
+    annotation_position="top left",
 )
 
 fig.add_hline(
     y=day_low,
-    line=dict(width=1, dash="dash"),
+    line=dict(width=1, color="rgba(255,255,255,0.4)"),
     annotation_text="Day Low",
-    annotation_position="bottom left"
+    annotation_position="bottom left",
 )
 
 # Layout polish
 fig.update_layout(
-    height=550,
+    height=560,
     template="plotly_dark",
     hovermode="x unified",
     margin=dict(l=40, r=40, t=40, b=40),
     legend=dict(
         orientation="h",
         yanchor="bottom",
-        y=1.02,
+        y=1.05,
         xanchor="right",
-        x=1
+        x=1,
+        font=dict(size=11),
     ),
+    xaxis=dict(showgrid=False),
+    yaxis=dict(showgrid=True, gridcolor="rgba(255,255,255,0.05)"),
+    yaxis2=dict(showgrid=False),
 )
 
-fig.update_yaxes(title_text="Price (USD)", row=1, col=1)
+fig.update_yaxes(
+    title_text="Price (USD)",
+    range=[day_low - price_padding, day_high + price_padding],
+    row=1,
+    col=1,
+)
 fig.update_yaxes(title_text="Volume", row=2, col=1)
 
 st.subheader(f"{selected_symbol} Price Trend")
