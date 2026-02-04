@@ -37,6 +37,5 @@ urllib3==2.6.3
 streamlit
 pandas
 yfinance
-sqlite3
 pytz
 streamlit-autorefresh
