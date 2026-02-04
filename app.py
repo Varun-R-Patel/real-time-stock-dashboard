@@ -83,6 +83,10 @@ if df.empty:
     st.warning("No data available right now. Please try again later.")
     st.stop()
 
+# 🔧 FIX: flatten yfinance MultiIndex columns (cloud-safe)
+if isinstance(df.columns, pd.MultiIndex):
+    df.columns = df.columns.get_level_values(0)
+
 # --------------------------------------------------
 # Analysis
 # --------------------------------------------------
