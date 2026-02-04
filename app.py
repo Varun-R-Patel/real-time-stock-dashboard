@@ -1,31 +1,73 @@
 import streamlit as st
 import pandas as pd
-import sqlite3
+import yfinance as yf
 from streamlit_autorefresh import st_autorefresh
+from datetime import datetime
+import pytz
 
+# --------------------------------------------------
+# Page configuration
+# --------------------------------------------------
 st.set_page_config(
     page_title="Real-Time Stock Dashboard",
-    page_icon="📊",
+    page_icon="📈",
     layout="wide"
 )
-st_autorefresh(interval=5000)
 
-st.title("📈 Real-Time Stock Market Dashboard")
+# Auto-refresh every 60 seconds
+st_autorefresh(interval=60_000)
+
+# --------------------------------------------------
+# Helper: Market status
+# --------------------------------------------------
+def market_status():
+    eastern = pytz.timezone("US/Eastern")
+    now = datetime.now(eastern)
+
+    if now.weekday() >= 5:
+        return "Market Closed (Weekend)"
+
+    if now.hour < 9 or (now.hour == 9 and now.minute < 30):
+        return "Pre-Market"
+    elif 9 <= now.hour < 16:
+        return "Market Open"
+    else:
+        return "After Hours"
+
+# --------------------------------------------------
+# Cached live data fetch (cloud-safe)
+# --------------------------------------------------
+@st.cache_data(ttl=60)
+def fetch_live_data(symbol):
+    df = yf.download(
+        tickers=symbol,
+        period="1d",
+        interval="1m",
+        prepost=True,      # include after-hours + pre-market
+        progress=False
+    )
+    return df
+
+# --------------------------------------------------
+# UI: Title and context
+# --------------------------------------------------
+st.title("📊 Real-Time Stock Market Dashboard")
+
+status = market_status()
+st.info(f"🕒 {status}")
 
 st.caption(
-    "Live market data ingested in real time. Includes regular, after-hours, and pre-market data. "
-    "Dashboard updates automatically and highlights short-term trends."
-    "After-hours prices update less frequently due to lower trading volume."
+    "Live stock prices with pre-market and after-hours data. "
+    "After-hours updates may be less frequent due to lower trading volume."
 )
 
+# --------------------------------------------------
+# Sidebar controls
+# --------------------------------------------------
 st.sidebar.header("Controls")
 
-conn = sqlite3.connect("database.db")
-df = pd.read_sql("SELECT * FROM stock_prices", conn)
-df["time"] = pd.to_datetime(df["time"])
-
-stocks = df["symbol"].unique().tolist()
-selected_stock = st.sidebar.selectbox("Select Stock", stocks)
+symbols = ["AAPL", "MSFT", "GOOGL"]
+selected_symbol = st.sidebar.selectbox("Select Stock", symbols)
 
 ma_window = st.sidebar.slider(
     "Moving Average Window",
@@ -34,20 +76,52 @@ ma_window = st.sidebar.slider(
     value=5
 )
 
-filtered_df = df[df["symbol"] == selected_stock]
+# --------------------------------------------------
+# Fetch data
+# --------------------------------------------------
+df = fetch_live_data(selected_symbol)
 
-latest_price = filtered_df["price"].iloc[-1]
-price_change = latest_price - filtered_df["price"].iloc[0]
+if df.empty:
+    st.warning("No data available right now. Please try again later.")
+    st.stop()
 
+# --------------------------------------------------
+# Analysis
+# --------------------------------------------------
+df["MA"] = df["Close"].rolling(ma_window).mean()
+
+latest_price = df["Close"].iloc[-1]
+price_change = latest_price - df["Close"].iloc[0]
+
+# --------------------------------------------------
+# Metrics
+# --------------------------------------------------
 col1, col2 = st.columns(2)
-col1.metric("Latest Price", round(latest_price, 2))
-col2.metric("Change Since Start", round(price_change, 2))
 
-filtered_df["MA"] = filtered_df["price"].rolling(ma_window).mean()
+col1.metric(
+    "Latest Price",
+    f"${latest_price:.2f}"
+)
 
-st.subheader(f"{selected_stock} Price Trend")
+col2.metric(
+    "Change Today",
+    f"${price_change:.2f}"
+)
+
+# --------------------------------------------------
+# Chart
+# --------------------------------------------------
+st.subheader(f"{selected_symbol} Price Trend")
 
 st.line_chart(
-    filtered_df.set_index("time")[["price", "MA"]],
+    df[["Close", "MA"]],
     height=400
+)
+
+# --------------------------------------------------
+# Footer
+# --------------------------------------------------
+st.caption(
+    "Data source: Yahoo Finance · Built with Streamlit · "
+    "Designed for real-time market monitoring and analysis."
 )
