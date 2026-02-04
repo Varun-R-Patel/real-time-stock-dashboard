@@ -3,8 +3,9 @@ import pandas as pd
 import yfinance as yf
 from streamlit_autorefresh import st_autorefresh
 from datetime import datetime
-import plotly.graph_objects as go
 import pytz
+import plotly.graph_objects as go
+from plotly.subplots import make_subplots
 
 # --------------------------------------------------
 # Page configuration
@@ -84,23 +85,29 @@ if df.empty:
     st.warning("No data available right now. Please try again later.")
     st.stop()
 
-# 🔧 FIX: flatten yfinance MultiIndex columns (cloud-safe)
+# --------------------------------------------------
+# Fix: Flatten MultiIndex columns (yfinance cloud issue)
+# --------------------------------------------------
 if isinstance(df.columns, pd.MultiIndex):
     df.columns = df.columns.get_level_values(0)
+
+df = df.copy()
 
 # --------------------------------------------------
 # Analysis
 # --------------------------------------------------
-df = df.copy()
 df["MA"] = df["Close"].rolling(ma_window).mean()
 
-# --------------------------------------------------
-# Metrics
-# --------------------------------------------------
 latest_price = float(df["Close"].iloc[-1])
 start_price = float(df["Close"].iloc[0])
 price_change = latest_price - start_price
 
+day_high = df["High"].max()
+day_low = df["Low"].min()
+
+# --------------------------------------------------
+# Metrics
+# --------------------------------------------------
 col1, col2 = st.columns(2)
 
 col1.metric(
@@ -114,13 +121,17 @@ col2.metric(
 )
 
 # --------------------------------------------------
-# Chart
+# Interactive Chart: Price + MA + Volume + High/Low
 # --------------------------------------------------
-st.subheader(f"{selected_symbol} Price Trend")
+fig = make_subplots(
+    rows=2,
+    cols=1,
+    shared_xaxes=True,
+    vertical_spacing=0.05,
+    row_heights=[0.7, 0.3]
+)
 
-fig = go.Figure()
-
-# Price line (smooth curve)
+# Price line
 fig.add_trace(
     go.Scatter(
         x=df.index,
@@ -129,10 +140,12 @@ fig.add_trace(
         name="Price",
         line=dict(width=2),
         hovertemplate="Time: %{x}<br>Price: $%{y:.2f}<extra></extra>"
-    )
+    ),
+    row=1,
+    col=1
 )
 
-# Moving Average line
+# Moving Average
 fig.add_trace(
     go.Scatter(
         x=df.index,
@@ -141,18 +154,58 @@ fig.add_trace(
         name=f"MA ({ma_window})",
         line=dict(width=2, dash="dot"),
         hovertemplate="Time: %{x}<br>MA: $%{y:.2f}<extra></extra>"
-    )
+    ),
+    row=1,
+    col=1
 )
 
+# Volume bars
+fig.add_trace(
+    go.Bar(
+        x=df.index,
+        y=df["Volume"],
+        name="Volume",
+        marker=dict(opacity=0.4),
+        hovertemplate="Time: %{x}<br>Volume: %{y:,}<extra></extra>"
+    ),
+    row=2,
+    col=1
+)
+
+# Day High / Low bands
+fig.add_hline(
+    y=day_high,
+    line=dict(width=1, dash="dash"),
+    annotation_text="Day High",
+    annotation_position="top left"
+)
+
+fig.add_hline(
+    y=day_low,
+    line=dict(width=1, dash="dash"),
+    annotation_text="Day Low",
+    annotation_position="bottom left"
+)
+
+# Layout polish
 fig.update_layout(
-    height=450,
+    height=550,
+    template="plotly_dark",
     hovermode="x unified",
-    xaxis_title="Time",
-    yaxis_title="Price (USD)",
-    legend=dict(orientation="h", yanchor="bottom", y=1.02),
-    margin=dict(l=40, r=40, t=40, b=40)
+    margin=dict(l=40, r=40, t=40, b=40),
+    legend=dict(
+        orientation="h",
+        yanchor="bottom",
+        y=1.02,
+        xanchor="right",
+        x=1
+    ),
 )
 
+fig.update_yaxes(title_text="Price (USD)", row=1, col=1)
+fig.update_yaxes(title_text="Volume", row=2, col=1)
+
+st.subheader(f"{selected_symbol} Price Trend")
 st.plotly_chart(fig, use_container_width=True)
 
 # --------------------------------------------------
